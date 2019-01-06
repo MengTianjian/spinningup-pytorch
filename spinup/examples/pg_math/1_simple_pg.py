@@ -8,21 +8,20 @@ from gym.spaces import Discrete, Box
 class MLP(nn.Module):
     def __init__(self, obs_dim, sizes, activation=nn.Tanh, output_activation=None):
         super(MLP, self).__init__()
-        for i, size in enumerate(sizes[:-1]):
-            self.add_module('dense_%d'%i, nn.Linear(obs_dim, size))
+        sizes = [obs_dim] + sizes
+        layers = nn.ModuleList()
+        for i in range(len(sizes)-2):
+            layers.append(nn.Linear(sizes[i], sizes[i+1]))
             if activation is not None:
-                self.add_module('act_%d'%i, activation())
-        if len(sizes) > 1:
-            self.add_module('final_dense', nn.Linear(sizes[-2], sizes[-1]))
-        else:
-            self.add_module('final_dense', nn.Linear(obs_dim, sizes[-1]))
+                layers.append(activation())
+        layers.append(nn.Linear(sizes[-2], sizes[-1]))
         if output_activation is not None:
-            self.add_module('final_act', output_activation())
+            layers.append(output_activation())
+        self.mlp = nn.Sequential(*layers)
 
     def forward(self, x):
-        for name, mod in self.named_children():
-            x = mod(x)
-        return x
+        out = self.mlp(x)
+        return out
 
 def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2, 
           epochs=50, batch_size=5000, render=False):
@@ -40,7 +39,7 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
     # make core of policy network
     model = MLP(obs_dim, sizes=hidden_sizes+[n_acts])
 
-    # make train op
+    # make train optimizer
     train_optim = torch.optim.Adam(model.parameters(), lr=lr)
 
     # for training policy
