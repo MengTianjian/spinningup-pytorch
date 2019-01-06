@@ -37,10 +37,10 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
     n_acts = env.action_space.n
 
     # make core of policy network
-    model = MLP(obs_dim, sizes=hidden_sizes+[n_acts])
+    policy_network = MLP(obs_dim, sizes=hidden_sizes+[n_acts])
 
     # make train optimizer
-    train_optim = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(policy_network.parameters(), lr=lr)
 
     # for training policy
     def train_one_epoch():
@@ -71,7 +71,7 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
             batch_obs.append(obs.copy())
 
             # act in the environment
-            logits = model(torch.tensor(obs).view(1,-1).float())
+            logits = policy_network(torch.tensor(obs).view(1,-1).float())
             prob = F.softmax(logits, dim=-1)
             act = torch.multinomial(prob, 1)[0]
             batch_log_probs.append(F.cross_entropy(logits, act))
@@ -101,14 +101,14 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
                     break
 
         # take a single policy gradient update step
-        train_optim.zero_grad()
-        batch_loss = []
+        optimizer.zero_grad()
+        batch_losses = []
         for i in range(len(batch_acts)):
-            batch_loss.append(batch_log_probs[i]*batch_weights[i])
-        loss = sum(batch_loss)/len(batch_loss)
+            batch_losses.append(batch_log_probs[i]*batch_weights[i])
+        loss = sum(batch_losses)/len(batch_losses)
         loss.backward()
-        train_optim.step()
-        return loss, batch_rets, batch_lens
+        optimizer.step()
+        return loss.detach(), batch_rets, batch_lens
 
     # training loop
     for i in range(epochs):
