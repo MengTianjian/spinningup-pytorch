@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Categorical
 import numpy as np
 import gym
 from gym.spaces import Discrete, Box
@@ -72,9 +73,9 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
 
             # act in the environment
             logits = policy_network(torch.tensor(obs).view(1,-1).float())
-            prob = F.softmax(logits, dim=-1)
-            act = torch.multinomial(prob, 1)[0]
-            batch_log_probs.append(F.cross_entropy(logits, act))
+            m = Categorical(logits=logits)
+            act = m.sample()
+            batch_log_probs.append(-m.log_prob(act))
             obs, rew, done, _ = env.step(act.item())
 
             # save action, reward
