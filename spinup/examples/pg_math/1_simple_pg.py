@@ -75,7 +75,7 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
             logits = policy_network(torch.tensor(obs).view(1,-1).float())
             m = Categorical(logits=logits)
             act = m.sample()
-            batch_log_probs.append(-m.log_prob(act))
+            batch_log_probs.append(m.log_prob(act))
             obs, rew, done, _ = env.step(act.item())
 
             # save action, reward
@@ -103,10 +103,8 @@ def train(env_name='CartPole-v0', hidden_sizes=[32], lr=1e-2,
 
         # take a single policy gradient update step
         optimizer.zero_grad()
-        batch_losses = []
-        for i in range(len(batch_acts)):
-            batch_losses.append(batch_log_probs[i]*batch_weights[i])
-        loss = sum(batch_losses)/len(batch_losses)
+        batch_loss = torch.cat(batch_log_probs).mul(torch.tensor(batch_weights))
+        loss = -batch_loss.mean()
         loss.backward()
         optimizer.step()
         return loss.detach(), batch_rets, batch_lens
